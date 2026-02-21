@@ -1,0 +1,26 @@
+{
+  "name": "sageconnect",
+  "version": "3.0.0",
+  "description": "This is the code implementation to handle the changes on the API of portaldeproveedores in SAGE 300",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js",
+    "background-only": "node src/background.js",
+    "web-only": "node src/index.js --web-only"
+  },
+  "author": "FReptar0",
+  "license": "ISC",
+  "dependencies": {
+    "axios": "^1.7.7",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "fs": "^0.0.1-security",
+    "joi": "^17.13.3",
+    "log4js": "^6.9.1",
+    "mssql": "^11.0.1",
+    "node-notifier": "^10.0.1",
+    "nodemailer": "^6.9.16",
+    "winston": "^3.17.0",
+    "xml2js": "^0.6.2"
+  }
+}
