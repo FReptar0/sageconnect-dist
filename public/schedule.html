@@ -1,0 +1,976 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SageConnect - Programacion</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/css/bootstrap.min.css" rel="stylesheet"
+        integrity="sha384-KK94CHFLLe+nY2dmCWGMq91rCGa5gtU4mk92HdvYe+M/SXH301p5ILy+dN9+nJOZ" crossorigin="anonymous">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha3/dist/js/bootstrap.bundle.min.js"
+        integrity="sha384-ENjdO4Dr2bkBIFxQpeoTz1HIcje39Wm4jDKdf19U8gI4ddQ3GYNS7NTKfAdVQSZe"
+        crossorigin="anonymous"></script>
+    <script src="https://unpkg.com/cronstrue@3.14.0/dist/cronstrue.min.js"></script>
+    <script src="https://unpkg.com/cronstrue@3.14.0/locales/es.min.js"></script>
+</head>
+
+<style>
+    body {
+        background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        min-height: 100vh;
+        margin: 0;
+    }
+
+    .card {
+        border-radius: 15px;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+        border: none;
+        backdrop-filter: blur(10px);
+        background: rgba(255, 255, 255, 0.95);
+    }
+
+    .card-header {
+        background: linear-gradient(45deg, #2c3e50, #3498db);
+        color: white;
+        border-radius: 15px 15px 0 0 !important;
+        font-weight: 600;
+    }
+
+    /* Timeline styles */
+    .timeline {
+        position: relative;
+        padding-left: 30px;
+    }
+
+    .timeline::before {
+        content: '';
+        position: absolute;
+        left: 12px;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: #dee2e6;
+    }
+
+    .timeline-step {
+        position: relative;
+        padding: 8px 0;
+        display: flex;
+        align-items: flex-start;
+        gap: 10px;
+    }
+
+    .timeline-step .step-icon {
+        position: absolute;
+        left: -30px;
+        width: 24px;
+        height: 24px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: white;
+        border-radius: 50%;
+        z-index: 1;
+    }
+
+    .timeline-step .step-content {
+        flex: 1;
+    }
+
+    .timeline-step .step-content .step-label {
+        font-weight: 600;
+        font-size: 0.9rem;
+    }
+
+    .timeline-step .step-content .step-meta {
+        font-size: 0.8rem;
+        color: #6c757d;
+    }
+
+    /* Loading spinner */
+    .loading-overlay {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 200px;
+    }
+</style>
+
+<body>
+    <div class="d-flex">
+        <!-- Sidebar -->
+        <div id="sidebar"></div>
+
+        <!-- Main Content -->
+        <div class="flex-grow-1">
+            <!-- Page Header -->
+            <div class="p-3 border-bottom bg-white">
+                <h4 class="mb-0"><i class="fas fa-calendar-check me-2 text-primary"></i>Programacion</h4>
+            </div>
+
+            <!-- Content Area -->
+            <div class="p-4">
+                <!-- Loading state -->
+                <div id="loading" class="loading-overlay">
+                    <div class="text-center text-white">
+                        <div class="spinner-border text-light mb-3" role="status">
+                            <span class="visually-hidden">Cargando...</span>
+                        </div>
+                        <p>Cargando datos de programacion...</p>
+                    </div>
+                </div>
+
+                <!-- Main content (hidden while loading) -->
+                <div id="main-content" style="display: none;">
+
+                    <!-- Schedule Status Card -->
+                    <div class="card mb-4">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-clock me-2"></i>Ciclo de Fondo</span>
+                            <span id="status-badge"></span>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <table class="table table-borderless mb-0">
+                                        <tbody>
+                                            <tr>
+                                                <td class="text-muted fw-bold" style="width: 160px;">Expresion Cron:</td>
+                                                <td>
+                                                    <code id="cron-raw"></code>
+                                                    <span id="cron-human" class="ms-2 text-muted small"></span>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td class="text-muted fw-bold">Proxima ejecucion:</td>
+                                                <td id="next-run">-</td>
+                                            </tr>
+                                            <tr>
+                                                <td class="text-muted fw-bold">Ultima ejecucion:</td>
+                                                <td id="last-run">-</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                                <div class="col-md-6 d-flex align-items-center justify-content-end">
+                                    <button id="btn-trigger" class="btn btn-primary btn-lg" onclick="triggerCycle()">
+                                        <i class="fas fa-play me-2"></i>Ejecutar Ahora
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Active Operation Card (Phase 17 — OBS-01, OBS-02) -->
+                    <div id="active-operation-card" class="card mb-4" style="display: none;">
+                        <div class="card-header d-flex justify-content-between align-items-center">
+                            <span><i class="fas fa-play-circle me-2"></i>Operación en curso</span>
+                            <div class="d-flex align-items-center gap-2">
+                                <span id="active-op-badge"></span>
+                                <button id="btn-force-release"
+                                        type="button"
+                                        class="btn btn-sm btn-outline-danger"
+                                        title="Liberar manualmente el lock background-cycle (admin only)"
+                                        aria-label="Forzar liberación del lock background-cycle"
+                                        data-bs-toggle="modal"
+                                        data-bs-target="#forceReleaseModal">
+                                    <i class="fas fa-unlock-alt me-1"></i>Forzar liberación
+                                </button>
+                            </div>
+                        </div>
+                        <div class="card-body">
+                            <div id="active-op-summary" class="mb-2">
+                                <span class="text-muted">Operación:</span>
+                                <code id="active-op-type">background-cycle</code>
+                                <span class="text-muted ms-3">ID:</span>
+                                <code id="active-op-id" title="">—</code>
+                            </div>
+                            <div class="mb-1">
+                                <i class="fas fa-clock me-1 text-muted"></i>
+                                <span class="text-muted">Iniciada:</span>
+                                <span id="active-op-elapsed" title="">—</span>
+                            </div>
+                            <div id="active-op-step-line">
+                                <i class="fas fa-spinner fa-spin me-1 text-primary"></i>
+                                <span class="text-muted">Step actual:</span>
+                                <span id="active-op-step">Inicializando ciclo…</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Real-time Timeline Card -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <i class="fas fa-stream me-2"></i>Progreso en Tiempo Real
+                        </div>
+                        <div class="card-body">
+                            <div id="timeline">
+                                <p class="text-muted text-center mb-0">
+                                    <i class="fas fa-info-circle me-1"></i>Sin actividad reciente
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Execution History Card -->
+                    <div class="card mb-4">
+                        <div class="card-header">
+                            <i class="fas fa-history me-2"></i>Historial de Ejecuciones
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="table-responsive">
+                                <table class="table table-hover mb-0">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>Fecha/Hora</th>
+                                            <th>Duracion</th>
+                                            <th>Estado</th>
+                                            <th>Errores</th>
+                                            <th>Resumen</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="history-body">
+                                        <tr>
+                                            <td colspan="5" class="text-center text-muted py-4">
+                                                No hay historial
+                                            </td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toast-container" class="toast-container position-fixed top-0 end-0 p-3" style="z-index: 1100;"></div>
+
+    <!-- Shared JS -->
+    <script src="/js/shared.js"></script>
+
+    <script>
+        /* ====================================================================
+         * Constants
+         * ==================================================================== */
+
+        const STEP_LABELS = {
+            buildProviders: 'Construir Proveedores XML',
+            downloadCFDI: 'Descargar CFDIs',
+            checkPayments: 'Verificar Pagos',
+            uploadPayments: 'Subir Pagos',
+            createPurchaseOrders: 'Crear Ordenes de Compra',
+            processOrderChanges: 'Procesar Cambios de Ordenes',
+            closePurchaseOrders: 'Cerrar Ordenes de Compra',
+            startChildProcess: 'Importar CFDIs (proceso hijo)',
+        };
+
+        let evtSource = null;
+        let currentTask = null;
+
+        // Phase 17: polling state for the "Operación en curso" card
+        let activeOpPollHandle = null;       // setInterval id for the 5s polling loop
+        let activeOpHeartbeatHandle = null;  // setInterval id for the 1s heartbeat refresh
+        let activeOpSnapshot = null;         // last successful poll payload for the active op (or null when idle)
+
+        /* ====================================================================
+         * Page Initialization
+         * ==================================================================== */
+
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initPage('/schedule.html');
+            await loadScheduleData();
+
+            // Phase 17 (D-06): permanent 5s polling for the "Operación en curso" card.
+            // Always-on (no backoff, no pause-on-idle) — endpoint is read-only and cheap.
+            // Initial call covers mid-cycle reload detection (replaces the old
+            // bgTask.status === 'running' conditional removed in Task 2a).
+            await pollActiveOperation();
+            activeOpPollHandle = setInterval(pollActiveOperation, 5000);
+
+            // Phase 17 (D-08): client-side heartbeat refresh every 1s without re-fetching.
+            activeOpHeartbeatHandle = setInterval(refreshActiveOperationHeartbeat, 1000);
+
+            // Phase 18 (REC-03): force-release modal wiring.
+            // (1) On show.bs.modal: clear stale error, populate the dynamic context line
+            //     from activeOpSnapshot (operationId truncated to 8 chars + relative startedAt
+            //     + last-open-step label + tenant). All dynamic values escapeHtml'd.
+            // (2) On shown.bs.modal: focus the Cancelar button (overrides Bootstrap's default
+            //     "first focusable" behavior — UI-SPEC §"Focus management"). Defense against
+            //     accidental Enter-confirms on a freshly-opened destructive modal.
+            // (3) Click handler on the Confirmar button → submitForceRelease().
+            const forceModalEl = document.getElementById('forceReleaseModal');
+            if (forceModalEl) {
+                forceModalEl.addEventListener('show.bs.modal', () => {
+                    const ctxEl = document.getElementById('forceReleaseModalContext');
+                    const errorSlot = document.getElementById('forceReleaseModalError');
+                    // Always reset error slot when re-opening (UI-SPEC line 327-329).
+                    errorSlot.style.display = 'none';
+                    errorSlot.innerHTML = '';
+
+                    if (!activeOpSnapshot) {
+                        // Race: card visible at click time, but snapshot already cleared (next-poll race).
+                        ctxEl.innerHTML = '<em>Sin contexto disponible (la operación pudo haberse liberado entre el render y el click).</em>';
+                        return;
+                    }
+
+                    const opIdRaw = activeOpSnapshot.operationId || '';
+                    const shortId = opIdRaw.substring(0, 8) || '—';
+                    const startedRel = formatRelative(activeOpSnapshot.startedAt);
+                    const sp = Array.isArray(activeOpSnapshot.stepProgress) ? activeOpSnapshot.stepProgress : [];
+
+                    // Find last open step (mirror of backend findLastOpenStep) — pick LAST when all closed.
+                    let stepLabel;
+                    if (sp.length === 0) {
+                        stepLabel = '<em>inicializando ciclo</em>';
+                    } else {
+                        let active = null;
+                        for (let i = sp.length - 1; i >= 0; i--) {
+                            if (!sp[i].finishedAt) { active = sp[i]; break; }
+                        }
+                        const display = active || sp[sp.length - 1];
+                        const labelText = STEP_LABELS[display.step] || display.step;
+                        const tenantPart = display.tenant ? ' (' + escapeHtml(display.tenant) + ')' : '';
+                        stepLabel = '<code>' + escapeHtml(labelText) + '</code>' + tenantPart;
+                    }
+
+                    // Build the line via string concatenation. shortId/startedRel are derived from
+                    // already-validated polling data; we still escapeHtml the dynamic values
+                    // defensively (operationId is server-generated UUID v4, but defense in depth:
+                    // a malicious or corrupt poll response should not be able to inject markup).
+                    ctxEl.innerHTML =
+                        'Operación <code>' + escapeHtml(shortId) + '</code>, iniciada ' +
+                        escapeHtml(startedRel) + '. Step actual: ' + stepLabel + '.';
+                });
+
+                forceModalEl.addEventListener('shown.bs.modal', () => {
+                    // Override Bootstrap's default focus (which would land on the close X) so that
+                    // pressing Enter or Space on a freshly-opened modal does NOT confirm the
+                    // destructive action (UI-SPEC §"Focus management" + T-18-03-08 mitigation).
+                    const cancelBtn = document.getElementById('btn-force-release-cancel');
+                    if (cancelBtn) cancelBtn.focus();
+                });
+            }
+
+            const forceConfirmBtn = document.getElementById('btn-force-release-confirm');
+            if (forceConfirmBtn) {
+                forceConfirmBtn.addEventListener('click', submitForceRelease);
+            }
+        });
+
+        // Schedule is global -- tenant change does not reload schedule data
+        window.onTenantChange = function () {
+            // No-op: schedule is not per-tenant
+        };
+
+        /* ====================================================================
+         * Data Loading
+         * ==================================================================== */
+
+        async function loadScheduleData() {
+            const loading = document.getElementById('loading');
+            const mainContent = document.getElementById('main-content');
+
+            loading.style.display = 'flex';
+            mainContent.style.display = 'none';
+
+            try {
+                // Fetch schedule status and history in parallel
+                const [scheduleRes, historyRes] = await Promise.all([
+                    apiCall('GET', '/api/schedule'),
+                    apiCall('GET', '/api/schedule/history'),
+                ]);
+
+                // Render schedule status
+                if (scheduleRes.success && scheduleRes.data && scheduleRes.data.tasks) {
+                    const bgTask = scheduleRes.data.tasks.find(t => t.taskId === 'background-cycle');
+                    if (bgTask) {
+                        currentTask = bgTask;
+                        renderScheduleStatus(bgTask);
+                    }
+                }
+
+                // Render execution history
+                if (historyRes.success && historyRes.data && historyRes.data.executions) {
+                    renderHistory(historyRes.data.executions);
+                }
+            } catch (err) {
+                console.error('Error cargando datos de programacion:', err);
+            } finally {
+                loading.style.display = 'none';
+                mainContent.style.display = 'block';
+            }
+        }
+
+        /* ====================================================================
+         * Schedule Status Rendering
+         * ==================================================================== */
+
+        function renderScheduleStatus(task) {
+            // Status badge
+            const badgeEl = document.getElementById('status-badge');
+            if (task.status === 'running') {
+                badgeEl.innerHTML = '<span class="badge bg-success"><i class="fas fa-spinner fa-spin me-1"></i>Ejecutando</span>';
+            } else if (task.status === 'not-initialized') {
+                badgeEl.innerHTML = '<span class="badge bg-warning text-dark">No inicializado</span>';
+            } else {
+                badgeEl.innerHTML = '<span class="badge bg-secondary">Inactivo</span>';
+            }
+
+            // Cron expression
+            const cronRaw = document.getElementById('cron-raw');
+            const cronHuman = document.getElementById('cron-human');
+            cronRaw.textContent = task.cronExpression || '-';
+
+            if (task.cronExpression) {
+                try {
+                    cronHuman.textContent = '(' + cronstrue.toString(task.cronExpression, { locale: 'es' }) + ')';
+                } catch {
+                    cronHuman.textContent = '';
+                }
+            }
+
+            // Next run / Last run
+            document.getElementById('next-run').textContent = formatDateTime(task.nextRun);
+            document.getElementById('last-run').textContent = formatDateTime(task.lastRun);
+
+            // Disable trigger button while running
+            const btnTrigger = document.getElementById('btn-trigger');
+            if (task.status === 'running') {
+                btnTrigger.disabled = true;
+                btnTrigger.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>En ejecucion...';
+            } else {
+                btnTrigger.disabled = false;
+                btnTrigger.innerHTML = '<i class="fas fa-play me-2"></i>Ejecutar Ahora';
+            }
+        }
+
+        /* ====================================================================
+         * Execution History Rendering
+         * ==================================================================== */
+
+        function renderHistory(executions) {
+            const tbody = document.getElementById('history-body');
+
+            if (!executions || executions.length === 0) {
+                tbody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center text-muted py-4">
+                            No hay historial
+                        </td>
+                    </tr>
+                `;
+                return;
+            }
+
+            // Sort by startedAt descending (most recent first)
+            const sorted = [...executions].sort((a, b) =>
+                new Date(b.startedAt) - new Date(a.startedAt)
+            );
+
+            tbody.innerHTML = sorted.map(exec => {
+                const duration = formatDuration(exec.startedAt, exec.finishedAt);
+                const statusBadge = exec.success
+                    ? '<span class="badge bg-success">Exitoso</span>'
+                    : '<span class="badge bg-danger">Error</span>';
+                const errorCount = exec.errors ? exec.errors.length : 0;
+
+                return `
+                    <tr>
+                        <td>${formatDateTime(exec.startedAt)}</td>
+                        <td>${duration}</td>
+                        <td>${statusBadge}</td>
+                        <td>${errorCount}</td>
+                        <td>${exec.summary || '-'}</td>
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        /**
+         * Calculates duration between two ISO timestamps and formats as "Xm Ys" or "Xs".
+         */
+        function formatDuration(startISO, endISO) {
+            if (!startISO || !endISO) return '-';
+            try {
+                const ms = new Date(endISO) - new Date(startISO);
+                if (ms < 0) return '-';
+
+                const totalSeconds = Math.floor(ms / 1000);
+                const minutes = Math.floor(totalSeconds / 60);
+                const seconds = totalSeconds % 60;
+
+                if (minutes > 0) {
+                    return minutes + 'm ' + seconds + 's';
+                }
+                return seconds + 's';
+            } catch {
+                return '-';
+            }
+        }
+
+        /* ====================================================================
+         * Manual Trigger
+         * ==================================================================== */
+
+        async function triggerCycle() {
+            if (!confirmAction('Iniciar ciclo de fondo manualmente?')) {
+                return;
+            }
+
+            const btnTrigger = document.getElementById('btn-trigger');
+            btnTrigger.disabled = true;
+            btnTrigger.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Iniciando...';
+
+            try {
+                const res = await apiCall('POST', '/api/schedule/background-cycle/trigger');
+
+                if (res.success && res.data && res.data.operationId) {
+                    showToast('Ciclo iniciado', 'success');
+                    connectSSE(res.data.operationId);
+
+                    // Update status to running
+                    if (currentTask) {
+                        currentTask.status = 'running';
+                        renderScheduleStatus(currentTask);
+                    }
+                } else if (res.errors && res.errors.length > 0) {
+                    // 409 or other API error
+                    showToast('El ciclo ya esta en ejecucion', 'warning');
+                    btnTrigger.disabled = false;
+                    btnTrigger.innerHTML = '<i class="fas fa-play me-2"></i>Ejecutar Ahora';
+                } else {
+                    showToast('Error al iniciar ciclo', 'error');
+                    btnTrigger.disabled = false;
+                    btnTrigger.innerHTML = '<i class="fas fa-play me-2"></i>Ejecutar Ahora';
+                }
+            } catch (err) {
+                showToast('Error al iniciar ciclo: ' + err.message, 'error');
+                btnTrigger.disabled = false;
+                btnTrigger.innerHTML = '<i class="fas fa-play me-2"></i>Ejecutar Ahora';
+            }
+        }
+
+        /* ====================================================================
+         * SSE (Server-Sent Events) Connection
+         * ==================================================================== */
+
+        function connectSSE(operationId) {
+            // Close any existing connection
+            if (evtSource) {
+                evtSource.close();
+                evtSource = null;
+            }
+
+            // Clear timeline placeholder
+            const timeline = document.getElementById('timeline');
+            timeline.innerHTML = '';
+            timeline.classList.add('timeline');
+
+            evtSource = new EventSource('/api/operations/' + operationId + '/stream');
+
+            evtSource.addEventListener('progress', function (e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    addTimelineStep(data);
+                } catch (err) {
+                    console.error('Error procesando evento SSE:', err);
+                }
+            });
+
+            evtSource.addEventListener('complete', function (e) {
+                try {
+                    const data = JSON.parse(e.data);
+                    markTimelineComplete();
+                    showToast('Ciclo completado', 'success');
+                } catch (err) {
+                    console.error('Error procesando evento de completado:', err);
+                }
+
+                // Close connection
+                evtSource.close();
+                evtSource = null;
+
+                // Reset status to idle and reload data
+                if (currentTask) {
+                    currentTask.status = 'idle';
+                    renderScheduleStatus(currentTask);
+                }
+
+                // Reload history to show the new execution
+                loadHistoryOnly();
+            });
+
+            evtSource.onerror = function () {
+                console.warn('Conexion SSE perdida');
+                evtSource.close();
+                evtSource = null;
+            };
+        }
+
+        /**
+         * Reload just the history table (after a cycle completes).
+         */
+        async function loadHistoryOnly() {
+            try {
+                const res = await apiCall('GET', '/api/schedule/history');
+                if (res.success && res.data && res.data.executions) {
+                    renderHistory(res.data.executions);
+                }
+            } catch (err) {
+                console.error('Error recargando historial:', err);
+            }
+        }
+
+        /* ====================================================================
+         * Timeline Step Management
+         * ==================================================================== */
+
+        /** Tracks which steps have been added to avoid duplicates */
+        const addedSteps = new Set();
+
+        function addTimelineStep(data) {
+            const timeline = document.getElementById('timeline');
+            const step = data.step || 'unknown';
+
+            // Mark previous in-progress steps as complete
+            const inProgress = timeline.querySelectorAll('.step-in-progress');
+            inProgress.forEach(el => {
+                el.classList.remove('step-in-progress');
+                const icon = el.querySelector('.step-icon');
+                if (icon) {
+                    icon.innerHTML = '<i class="fas fa-check-circle text-success"></i>';
+                }
+            });
+
+            // If this step was already added, skip duplicate
+            const stepKey = step + '_' + (data.tenant || '');
+            if (addedSteps.has(stepKey)) return;
+            addedSteps.add(stepKey);
+
+            const label = STEP_LABELS[step] || step;
+            const tenant = data.tenant || '';
+            const time = data.timestamp ? formatDateTime(data.timestamp) : '';
+
+            const stepEl = document.createElement('div');
+            stepEl.className = 'timeline-step step-in-progress';
+            stepEl.innerHTML = `
+                <div class="step-icon">
+                    <i class="fas fa-spinner fa-spin text-primary"></i>
+                </div>
+                <div class="step-content">
+                    <div class="step-label">${label}</div>
+                    <div class="step-meta">
+                        ${tenant ? '<i class="fas fa-building me-1"></i>' + tenant + ' &middot; ' : ''}
+                        ${time ? '<i class="fas fa-clock me-1"></i>' + time : ''}
+                    </div>
+                    ${data.message ? '<div class="step-meta mt-1">' + data.message + '</div>' : ''}
+                </div>
+            `;
+
+            timeline.appendChild(stepEl);
+
+            // Scroll timeline into view
+            stepEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function markTimelineComplete() {
+            const timeline = document.getElementById('timeline');
+            const allSteps = timeline.querySelectorAll('.timeline-step');
+            allSteps.forEach(el => {
+                el.classList.remove('step-in-progress');
+                const icon = el.querySelector('.step-icon');
+                if (icon) {
+                    icon.innerHTML = '<i class="fas fa-check-circle text-success"></i>';
+                }
+            });
+        }
+
+        /* ====================================================================
+         * Phase 17: Polling-driven Active Operation Card
+         * ==================================================================== */
+
+        /**
+         * Polls /api/operations/status, updates the "Operación en curso" card,
+         * and (if an operationId is detected and no SSE is open yet) connects SSE
+         * to feed the existing "Progreso en Tiempo Real" timeline. Hides the card
+         * when no operations are active and closes SSE.
+         *
+         * Called every 5s by activeOpPollHandle (D-06). Also called once on page load.
+         * Replaces the old detectRunningOperation() removed in Task 2a (had a bug:
+         * operations.find() on a map always returned undefined — see Phase 17 D-04).
+         */
+        async function pollActiveOperation() {
+            try {
+                const res = await apiCall('GET', '/api/operations/status');
+                if (!res || !res.success || !res.data || !res.data.operations) {
+                    hideActiveOperationCard();
+                    return;
+                }
+
+                // D-04 bug fix: operations is a MAP keyed by operationType, not an array.
+                // Use direct map access (or Object.values when iterating) — never .find().
+                const bgOp = res.data.operations['background-cycle'] || null;
+
+                if (!bgOp || !bgOp.operationId) {
+                    hideActiveOperationCard();
+                    return;
+                }
+
+                activeOpSnapshot = bgOp;
+                renderActiveOperationCard(bgOp);
+
+                // D-05 hybrid: when polling detects an op AND no SSE is open, open one
+                // so the existing timeline (Phase 9) gets fed. SSE never updates THIS card.
+                if (!evtSource) {
+                    connectSSE(bgOp.operationId);
+                }
+            } catch (err) {
+                console.warn('Error polling /api/operations/status:', err);
+                // Do NOT hide the card on transient network errors — leave the last snapshot.
+            }
+        }
+
+        /**
+         * Renders the active operation card from a /status response entry.
+         * Per D-08, "step actual" = LAST stepProgress entry without finishedAt.
+         * Per D-07, when stepProgress is empty, show "Inicializando ciclo…".
+         */
+        function renderActiveOperationCard(op) {
+            const card = document.getElementById('active-operation-card');
+            card.style.display = '';
+
+            // D-10: truncate operationId to first 8 chars; full UUID in tooltip
+            const idEl = document.getElementById('active-op-id');
+            const shortId = (op.operationId || '').substring(0, 8) || '—';
+            idEl.textContent = shortId;
+            idEl.title = op.operationId || '';
+
+            // D-09: relative elapsed since startedAt; full ISO in tooltip
+            const elapsedEl = document.getElementById('active-op-elapsed');
+            elapsedEl.textContent = formatRelative(op.startedAt);
+            elapsedEl.title = op.startedAt || '';
+
+            // D-07 / D-08: "step actual" line
+            const stepEl = document.getElementById('active-op-step');
+            const sp = Array.isArray(op.stepProgress) ? op.stepProgress : [];
+
+            if (sp.length === 0) {
+                stepEl.textContent = 'Inicializando ciclo…';
+                stepEl.title = '';
+                return;
+            }
+
+            // Last entry without finishedAt = "currently running"
+            // If all are finished (e.g. inter-tenant pause), show last entry as "completado"
+            let active = null;
+            for (let i = sp.length - 1; i >= 0; i--) {
+                if (!sp[i].finishedAt) { active = sp[i]; break; }
+            }
+            const last = sp[sp.length - 1];
+            const display = active || last;
+            const label = STEP_LABELS[display.step] || display.step;
+            const tenantPart = display.tenant ? ' · ' + display.tenant : '';
+            const heartbeatPart = ' · heartbeat ' + formatRelative(display.startedAt);
+            const status = active ? '' : ' (completado)';
+            stepEl.textContent = label + tenantPart + heartbeatPart + status;
+            stepEl.title = 'startedAt: ' + (display.startedAt || '') + (display.finishedAt ? '  finishedAt: ' + display.finishedAt : '');
+        }
+
+        /**
+         * Hides the active operation card and closes SSE if open. Called when polling
+         * sees no active operations (cycle just finished or never started).
+         */
+        function hideActiveOperationCard() {
+            const card = document.getElementById('active-operation-card');
+            if (card) card.style.display = 'none';
+            activeOpSnapshot = null;
+            if (evtSource) {
+                evtSource.close();
+                evtSource = null;
+            }
+        }
+
+        /**
+         * Refreshes only the relative-time strings on the active operation card
+         * WITHOUT calling the API. Driven by setInterval(1000) per D-08.
+         * Reads activeOpSnapshot which was set by the last successful poll.
+         */
+        function refreshActiveOperationHeartbeat() {
+            if (!activeOpSnapshot) return;
+            const elapsedEl = document.getElementById('active-op-elapsed');
+            if (elapsedEl) elapsedEl.textContent = formatRelative(activeOpSnapshot.startedAt);
+
+            // Update step heartbeat without re-deriving "active" — same logic as renderActiveOperationCard
+            const sp = Array.isArray(activeOpSnapshot.stepProgress) ? activeOpSnapshot.stepProgress : [];
+            if (sp.length === 0) return;
+            let active = null;
+            for (let i = sp.length - 1; i >= 0; i--) {
+                if (!sp[i].finishedAt) { active = sp[i]; break; }
+            }
+            const display = active || sp[sp.length - 1];
+            const label = STEP_LABELS[display.step] || display.step;
+            const tenantPart = display.tenant ? ' · ' + display.tenant : '';
+            const heartbeatPart = ' · heartbeat ' + formatRelative(display.startedAt);
+            const status = active ? '' : ' (completado)';
+            const stepEl = document.getElementById('active-op-step');
+            if (stepEl) stepEl.textContent = label + tenantPart + heartbeatPart + status;
+        }
+
+        /* ====================================================================
+         * Phase 18 (REC-03): Force-release flow
+         * ==================================================================== */
+
+        /**
+         * REC-03 (D-05/D-07): handle the confirm button click of the force-release modal.
+         * State machine documented in 18-UI-SPEC.md §"Destructive confirmation summary":
+         *   idle -> loading (disable both modal buttons, swap label/icon to spinner)
+         *   on 200/released:true  -> close modal, hideActiveOperationCard() (optimistic), no toast.
+         *   on 200/released:false -> close modal, warning toast "El lock ya se había liberado", hideActiveOperationCard().
+         *   on 4xx/5xx/network    -> stay open, re-enable both buttons, render inline alert-danger
+         *                            inside #forceReleaseModalError.
+         *
+         * Phase 19 boundary held: no AbortController, no client-side timeout. Trust the server.
+         */
+        async function submitForceRelease() {
+            const confirmBtn = document.getElementById('btn-force-release-confirm');
+            const cancelBtn  = document.getElementById('btn-force-release-cancel');
+            const errorSlot  = document.getElementById('forceReleaseModalError');
+
+            // Capture original (idle) HTML for restoration in finally
+            const idleConfirmHtml = '<i class="fas fa-unlock-alt me-1"></i>Confirmar liberación';
+
+            // Loading state
+            confirmBtn.disabled = true;
+            cancelBtn.disabled = true;
+            confirmBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-1"></i>Liberando...';
+            errorSlot.style.display = 'none';
+            errorSlot.innerHTML = '';
+
+            try {
+                const res = await apiCall('POST', '/api/schedule/background-cycle/force-release', {});
+
+                if (res && res.success) {
+                    // Close the modal via the cached Bootstrap instance.
+                    // (The instance was lazily created by the data-bs-toggle="modal" trigger;
+                    //  getInstance returns it.)
+                    const modalEl = document.getElementById('forceReleaseModal');
+                    const modalInstance = bootstrap.Modal.getInstance(modalEl);
+                    if (modalInstance) modalInstance.hide();
+
+                    // Idempotent path warning (UI-SPEC line 122 / D-07)
+                    if (res.data && res.data.released === false) {
+                        showToast('El lock ya se había liberado', 'warning');
+                    }
+
+                    // Optimistic UI: hide the card immediately so the operator sees instant feedback.
+                    // The next 5s poll will independently confirm and idempotently re-hide if needed.
+                    hideActiveOperationCard();
+                } else {
+                    throw new Error(
+                        (res && (res.summary || res.message || (Array.isArray(res.errors) && res.errors[0])))
+                        || 'Error desconocido'
+                    );
+                }
+            } catch (err) {
+                // Inline error rendering — modal stays open, operator can retry.
+                const safeMsg = (err && err.message) || 'Error desconocido';
+                errorSlot.innerHTML =
+                    '<div class="alert alert-danger py-2 mb-0">' +
+                    '<i class="fas fa-times-circle me-2"></i>' +
+                    'Error al liberar el lock: ' + escapeHtml(safeMsg) + '. ' +
+                    'Intentá nuevamente o revisá los logs del servidor.' +
+                    '</div>';
+                errorSlot.style.display = 'block';
+            } finally {
+                // Restore idle state. If the modal closed on success, these properties simply
+                // update an unmounted-from-view DOM — harmless.
+                confirmBtn.disabled = false;
+                cancelBtn.disabled = false;
+                confirmBtn.innerHTML = idleConfirmHtml;
+            }
+        }
+
+        /**
+         * Minimal HTML-escape helper — used inside the modal context line and the inline
+         * error slot (where err.message may contain "<", ">", "&", etc. from a server
+         * error like 'invalid <foo>'). Why: we use innerHTML for those slots intentionally
+         * (we want to render <code>, <em>, alert classes), so dynamic values must be
+         * escaped before concatenation. T-18-03-01..03 mitigation.
+         */
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, (c) => ({
+                '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+            }[c]));
+        }
+
+        /* ====================================================================
+         * Cleanup: Close SSE on page unload
+         * ==================================================================== */
+
+        window.addEventListener('beforeunload', function () {
+            if (evtSource) {
+                evtSource.close();
+                evtSource = null;
+            }
+            if (activeOpPollHandle) {
+                clearInterval(activeOpPollHandle);
+                activeOpPollHandle = null;
+            }
+            if (activeOpHeartbeatHandle) {
+                clearInterval(activeOpHeartbeatHandle);
+                activeOpHeartbeatHandle = null;
+            }
+        });
+    </script>
+
+    <!-- Phase 18 (REC-03): force-release confirmation modal -->
+    <div class="modal fade"
+         id="forceReleaseModal"
+         tabindex="-1"
+         aria-labelledby="forceReleaseModalTitle"
+         aria-describedby="forceReleaseModalBody"
+         aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="forceReleaseModalTitle">
+                        <i class="fas fa-unlock-alt me-2 text-danger"></i>Forzar liberación de lock
+                    </h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Cerrar"></button>
+                </div>
+                <div class="modal-body" id="forceReleaseModalBody">
+                    <p class="mb-2">¿Liberar el lock <code>background-cycle</code> actualmente en curso?</p>
+                    <p id="forceReleaseModalContext" class="mb-0 text-muted small">—</p>
+                    <div class="alert alert-warning py-2 mb-0 mt-3">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        Esta acción cancelará el ciclo en curso y disparará un email al administrador.
+                        El siguiente cron tick podrá ejecutar normalmente.
+                    </div>
+                    <div id="forceReleaseModalError" class="mt-2" style="display: none;"></div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button"
+                            id="btn-force-release-cancel"
+                            class="btn btn-secondary"
+                            data-bs-dismiss="modal">
+                        Cancelar
+                    </button>
+                    <button type="button"
+                            id="btn-force-release-confirm"
+                            class="btn btn-danger">
+                        <i class="fas fa-unlock-alt me-1"></i>Confirmar liberación
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+
+</html>
